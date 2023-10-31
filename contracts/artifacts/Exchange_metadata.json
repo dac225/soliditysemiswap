@@ -1,0 +1,269 @@
+{
+	"compiler": {
+		"version": "0.8.19+commit.7dd6d404"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_erc20Address",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "provider",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountERC20TokenDeposited",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountEthDeposited",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "liquidityPositionsIssued",
+						"type": "uint256"
+					}
+				],
+				"name": "LiquidityProvided",
+				"type": "event"
+			},
+			{
+				"inputs": [],
+				"name": "K",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "erc20Token",
+				"outputs": [
+					{
+						"internalType": "contract ERC20",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountEth",
+						"type": "uint256"
+					}
+				],
+				"name": "estimateERC20TokenToProvide",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "amountERC20Token",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountERC20Token",
+						"type": "uint256"
+					}
+				],
+				"name": "estimateEthToProvide",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "amountEth",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getMyLiquidityPositions",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "liquidityPositions",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountERC20Token",
+						"type": "uint256"
+					}
+				],
+				"name": "provideLiquidity",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "liquidity",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalLiquidityPositions",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_liquidityPositionsToBurn",
+						"type": "uint256"
+					}
+				],
+				"name": "withdrawLiquidity",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/Exchange.sol": "Exchange"
+		},
+		"evmVersion": "paris",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
+			"keccak256": "0x30745a46aa78a205c91a028629a2878d6d6416c747e2a13041c68588d3053df7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://aeaea07fc60676cc3e2d2df8d36dd550ba8fa0bb1395178a9b764ab4c049d8a3",
+				"dweb:/ipfs/QmeDqVsPV63rJj2uNPfg7SG5Z1KNP6vNgBN1F78kEmz1Jg"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+			"keccak256": "0x4b66493cca45dc0ba9bdfb0a60970f9278c11da8de004339944ced80b86c55c6",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://17bd597781651d2f92f83c60588ed3033665b9e99ba01b2ee64a9cc4f01833bb",
+				"dweb:/ipfs/Qmc1BpbKFzwVY5GcTFcShbgebCZNqXAWMorfZPHs43TL2S"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+			"keccak256": "0x4ce6e9f30dba5ae30f26321dc851b669caf3f953f8c832304d05df2a523f1af3",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://eb24de66bbfa42093a20d448cb2564655525cba0342035a42a37654e5d922deb",
+				"dweb:/ipfs/QmYgnFHamrgy5qurrxVLR1qDb7MirvGEoxCVwqiF1YvDMf"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
+			"keccak256": "0xfc40fb05166e90621012a05da452eaa14315f16ccf51833fb9c824c40809b06b",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://0c048116af61532acce61f77cdf6e1a4c0195e1d9d2f297c9016b4463e526163",
+				"dweb:/ipfs/QmfZ3hZ21ur1ysZsKdXh53LJ3GNZF9CK2UFD8QnAPi4wAJ"
+			]
+		},
+		"@openzeppelin/contracts/utils/Context.sol": {
+			"keccak256": "0xa1a93462fa05ab3ebbde01971ce1c6fb415761fbaab2710b70d0fbe1a53b0689",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://44fedd57d91bcaf205e97d8bc00ddbff05375e32a53bd30f7bfc49a629cc4439",
+				"dweb:/ipfs/QmbBJN3zuGqmma6Bdij4AN5zHmgF7txVU1kzrU6rCyWvsW"
+			]
+		},
+		"contracts/Exchange.sol": {
+			"keccak256": "0xaf993cd485debb85517b783c1ca8bff27c5d2a085a367fcc40c747e6b50ff551",
+			"license": "UNLICENSED",
+			"urls": [
+				"bzz-raw://ad2a242c40237d2e75eb80903e21a7d214f956a416aaddcf6d3368d9aa7ae15f",
+				"dweb:/ipfs/Qmb151sy4K54CNE9FeA8UmFZyb782hbuxPFpnj6jwyZSVx"
+			]
+		}
+	},
+	"version": 1
+}
