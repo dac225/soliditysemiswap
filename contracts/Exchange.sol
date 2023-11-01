@@ -147,7 +147,7 @@ contract Exchange {
         require(erc20Token.transfer(trader, amountERC20ToSend), "ERC20 transfer failed");
         require(trader.send(amountEthToSend), "ETH transfer failed");
 
-        // update K: K = newContractEthBalance * newContractERC20TokenBalance
+        // update K
         uint256 newContractEthBalance = address(this).balance;
         uint256 newContractERC20Balance = erc20Token.balanceOf(address(this));
         K = newContractEthBalance * newContractERC20Balance;
@@ -164,7 +164,6 @@ contract Exchange {
     */
     function swapForEth(uint256 _amountERC20Token) public payable returns (uint256 amountEthSent) {
         uint256 contractEthBalance = address(this).balance;
-        uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
 
         require(msg.sender == trader, "Only owner of these funds can withdraw their liquidity");
         
@@ -178,7 +177,6 @@ contract Exchange {
         uint256 contractERC20BalanceAfterSwap = erc20Token.balanceOf(address(this));
 
         // compute ETH to send to user in exchange for ERC-20 tokens    
-        // Hint: ethToSend = contractEthBalance - contractEthBalanceAfterSwap
         uint256 contractEthBalanceAfterSwap = K / contractERC20BalanceAfterSwap;
         amountEthSent = contractEthBalance - contractEthBalanceAfterSwap;
         
@@ -197,10 +195,17 @@ contract Exchange {
     * Return: uint of the estimated amount of ETH of equivalent value to the amount of ERC-20 tokens to be swapped
     */
     function estimateSwapForEth(uint256 _amountERC20Token) public view returns (uint256 ethEstimate) {
-        // make sure that the caller has the amount of ERC-20 tokens
-        // Hint: ethToSend = contractEthBalance - contractEthBalanceAfterSwap
-            // contractEthBalanceAfterSwap = K / contractERC20TokenBalanceAfterSwap
-        // return ethEstimate
+        uint256 contractEthBalance = address(this).balance;
+        
+        // compute ERC-20 balance after swap
+        uint256 contractERC20BalanceAfterSwap = erc20Token.balanceOf(address(this)) + _amountERC20Token;
+
+        // compute ETH estimate in exchange for ERC-20 tokens    
+        uint256 contractEthBalanceAfterSwap = K / contractERC20BalanceAfterSwap;
+        ethEstimate = contractEthBalance - contractEthBalanceAfterSwap;
+        
+        // return amountEthSent
+        return ethEstimate;
     }
 
     /**
