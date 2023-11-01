@@ -144,7 +144,7 @@ contract Exchange {
         // Transfer Eth and ERC-20 tokens from contract to caller
         require(amountERC20ToSend < contractERC20Balance, "Insufficient ERC20 Funds in liquidity pool for withdrawal");
         require(amountEthToSend < contractEthBalance, "Insufficient ETH Funds in liquidity pool for withdrawal");
-        require(erc20Token.transferFrom(trader, address(this), amountERC20ToSend), "ERC20 transfer failed");
+        require(erc20Token.transfer(trader, amountERC20ToSend), "ERC20 transfer failed");
         require(trader.send(amountEthToSend), "ETH transfer failed");
 
         // update K: K = newContractEthBalance * newContractERC20TokenBalance
@@ -163,11 +163,30 @@ contract Exchange {
     * Return: uint of the amount of ETH sent in exchange for ERC-20 tokens
     */
     function swapForEth(uint256 _amountERC20Token) public payable returns (uint256 amountEthSent) {
+        uint256 contractEthBalance = address(this).balance;
+        uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
+
+        require(msg.sender == trader, "Only owner of these funds can withdraw their liquidity");
+        
         // make sure that the caller has the amount of ERC-20 tokens
-        // Hint: ethToSend = contractEthBalance - contractEthBalanceAfterSwap
-            // contractEthBalanceAfterSwap = K / contractERC20TokenBalanceAfterSwap
+        require(_amountERC20Token <= erc20Token.balanceOf(trader), "Insufficient ERC-20 funds to swap");
+        
         // Transfer ERC-20 Tokens from caller to contract
+        require(erc20Token.transferFrom(trader, address(this), _amountERC20Token), "ERC20 transfer failed");
+        
+        // compute ERC-20 balance after swap
+        uint256 contractERC20BalanceAfterSwap = erc20Token.balanceOf(address(this));
+
+        // compute ETH to send to user in exchange for ERC-20 tokens    
+        // Hint: ethToSend = contractEthBalance - contractEthBalanceAfterSwap
+        uint256 contractEthBalanceAfterSwap = K / contractERC20BalanceAfterSwap;
+        amountEthSent = contractEthBalance - contractEthBalanceAfterSwap;
+        
+        // transfer ETH from contract to caller
+        require(trader.send(amountEthSent), "ETH transfer failed");
+
         // return amountEthSent
+        return amountEthSent;
     }
 
     /**
@@ -193,4 +212,3 @@ contract Exchange {
 
     
 }
-
