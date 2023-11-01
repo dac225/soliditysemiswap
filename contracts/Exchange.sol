@@ -16,7 +16,6 @@ contract Exchange {
     address payable public trader;
     uint256 public traderEthBalance; // will be initialized per function
 
-
     // Events
     event LiquidityProvided(address provider, uint256 amountERC20TokenDeposited, uint256 amountEthDeposited, uint256 liquidityPositionsIssued);
     event LiquidityWithdrew(uint256 amountERC20TokenWithdrew, uint256 amountEthWithdrew, uint256 liquidityPositionsBurned);
@@ -271,7 +270,7 @@ contract Exchange {
 
         // compute ERC-20 tokens to send in exchange for the ETH
         uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
-        uint256 contractERC20BalanceAfterSwap = K / address(this).balance + _amountEth;
+        uint256 contractERC20BalanceAfterSwap = K / (address(this).balance + _amountEth);
         erc20Estimate = contractERC20Balance - contractERC20BalanceAfterSwap;
 
         return erc20Estimate;   
