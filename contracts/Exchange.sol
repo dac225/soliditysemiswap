@@ -12,10 +12,6 @@ contract Exchange {
     uint256 public K; // Constant product
     mapping(address => uint) public liquidityPositions;
 
-    // Parameters to represent traders calling the smart contract
-    address payable public trader;
-    uint256 public traderEthBalance; // will be initialized per function
-
     // Events
     event LiquidityProvided(address provider, uint256 amountERC20TokenDeposited, uint256 amountEthDeposited, uint256 liquidityPositionsIssued);
     event LiquidityWithdrew(uint256 amountERC20TokenWithdrew, uint256 amountEthWithdrew, uint256 liquidityPositionsBurned);
@@ -28,10 +24,6 @@ contract Exchange {
         
         // compute constant product K of the currently traded ERC-20
         K = address(this).balance * erc20Token.balanceOf(address(this));
-        
-        // check to make sure that the calling address is payable before initializing the trader variable
-        require(payable(msg.sender).send(0), "Calling address must be payable"); 
-        trader = payable(msg.sender);
     }
 
     /**
@@ -47,7 +39,9 @@ contract Exchange {
     * Return: a uint of the amount of liquidity positions issued.
     */
     function provideLiquidity(uint256 _amountERC20Token) external payable returns (uint256 liquidity) {
-        require(msg.sender == trader, "Only owner of these funds can provide liquidity");
+        // ensure that the account interacting with the market is a payable account
+        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
+        address payable trader = payable(msg.sender);
 
         // ensure that the trader is not offering 0 liquidity
         require(_amountERC20Token != 0 && msg.value != 0, "You must provide non-zero liquidity");
@@ -74,14 +68,14 @@ contract Exchange {
         }
 
         // update liquidity
-        liquidityPositions[msg.sender] += liquidity;
+        liquidityPositions[trader] += liquidity;
         totalLiquidityPositions += liquidity;
 
         // Update constant K
         K = contractEthBalance * (contractERC20Balance + _amountERC20Token);
 
         // log the event
-        emit LiquidityProvided(msg.sender, _amountERC20Token, msg.value, liquidity); 
+        emit LiquidityProvided(trader, _amountERC20Token, msg.value, liquidity); 
 
         return liquidity;
     }
@@ -148,10 +142,13 @@ contract Exchange {
     * Return: uint of number of ERC-20 Tokens sent
     */
     function withdrawLiquidity(uint256 _liquidityPositionsToBurn) external payable returns (uint256 amountEthToSend, uint amountERC20ToSend){
+        // ensure that the account interacting with the market is a payable account
+        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
+        address payable trader = payable(msg.sender);
+        
+        // get the contract ETH and ERC-20 balances
         uint256 contractEthBalance = address(this).balance;
         uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
-        
-        require(msg.sender == trader, "Only owner of these funds can withdraw their liquidity");
         
         // make sure we have enough liquidity to burn (i.e. _liquidityPositionsToBurn <= liquidityPositions[caller]
         require(_liquidityPositionsToBurn <= liquidityPositions[trader], "Cannot withdraw more liquidity than deposited");
@@ -189,10 +186,13 @@ contract Exchange {
     * Return: uint of the amount of ETH sent in exchange for ERC-20 tokens
     */
     function swapForEth(uint256 _amountERC20Token) external payable returns (uint256 amountEthSent) {
+        // ensure that the account interacting with the market is a payable account
+        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
+        address payable trader = payable(msg.sender);
+
+        // aquire contract ETH balance
         uint256 contractEthBalance = address(this).balance;
 
-        require(msg.sender == trader, "Only owner of these funds can withdraw their liquidity");
-        
         // make sure that the caller has the amount of ERC-20 tokens
         require(_amountERC20Token <= erc20Token.balanceOf(trader), "Insufficient ERC-20 funds to swap");
         
@@ -242,7 +242,9 @@ contract Exchange {
     * Return: uint of the amount of ERC-20 tokens sent in exchange for ETH
     */
     function swapForERC20Token() external payable returns (uint256 amountERC20Sent) {
-        require(msg.sender == trader, "Only owner of these funds can swap them");
+        // ensure that the account interacting with the market is a payable account
+        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
+        address payable trader = payable(msg.sender);
         
         // Transfer ETH from caller to contract (done automatically)
 
@@ -266,7 +268,6 @@ contract Exchange {
     * Return: uint of the amount of ERC-20 tokens sent in exchange for ETH
     */
     function estimateSwapForERC20Token(uint256 _amountEth) external view returns (uint256 erc20Estimate) {
-        require(msg.sender == trader, "Only owner of these funds can swap them");
 
         // compute ERC-20 tokens to send in exchange for the ETH
         uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
