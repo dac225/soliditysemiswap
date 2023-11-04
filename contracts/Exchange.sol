@@ -12,7 +12,10 @@ contract Exchange {
     uint256 public K; // Constant product
     mapping(address => uint) public liquidityPositions;
 
-    // Events
+    // Testing Events
+    event ReceivedEther(uint balanceRec, uint newK);
+
+    // Exchange Log Events
     event LiquidityProvided(address provider, uint256 amountERC20TokenDeposited, uint256 amountEthDeposited, uint256 liquidityPositionsIssued);
     event LiquidityWithdrew(uint256 amountERC20TokenWithdrew, uint256 amountEthWithdrew, uint256 liquidityPositionsBurned);
     event SwapForEth(uint256 amountERC20TokenDeposited, uint256 amountEthWithdrew);
@@ -21,15 +24,16 @@ contract Exchange {
     constructor(address _erc20Address) {
         // ERC-20 token used in the exchange will be determined by caller here
         erc20Token = ERC20(_erc20Address); 
-        
-        // compute constant product K of the currently traded ERC-20
-        K = address(this).balance * erc20Token.balanceOf(address(this));
     }
 
     /**
     * Initializing receive() function to allow smart contract to receive ETH
     */
-    receive() external payable {}
+    receive() external payable {
+        // compute constant product K of the currently traded ERC-20 whenever the exchange recieves ETH
+        K = address(this).balance * erc20Token.balanceOf(address(this));
+        emit ReceivedEther(msg.value, K);
+    }
 
     /**
     * Caller deposits Ether and ERC20 token in ratio equal to the current ratio of tokens in the 
