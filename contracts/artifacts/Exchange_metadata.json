@@ -48,6 +48,69 @@
 				"type": "event"
 			},
 			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountERC20TokenWithdrew",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountEthWithdrew",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "liquidityPositionsBurned",
+						"type": "uint256"
+					}
+				],
+				"name": "LiquidityWithdrew",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountERC20TokenWithdrew",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountEthDeposited",
+						"type": "uint256"
+					}
+				],
+				"name": "SwapForERC20Token",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountERC20TokenDeposited",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amountEthWithdrew",
+						"type": "uint256"
+					}
+				],
+				"name": "SwapForEth",
+				"type": "event"
+			},
+			{
 				"inputs": [],
 				"name": "K",
 				"outputs": [
@@ -112,6 +175,44 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountEth",
+						"type": "uint256"
+					}
+				],
+				"name": "estimateSwapForERC20Token",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "ERC20TokenToSend",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountERC20Token",
+						"type": "uint256"
+					}
+				],
+				"name": "estimateSwapForEth",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "ethToSend",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [],
 				"name": "getMyLiquidityPositions",
 				"outputs": [
@@ -164,6 +265,38 @@
 			},
 			{
 				"inputs": [],
+				"name": "swapForERC20Token",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "ERC20TokenToSend",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountERC20Token",
+						"type": "uint256"
+					}
+				],
+				"name": "swapForEth",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "ethToSend",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "totalLiquidityPositions",
 				"outputs": [
 					{
@@ -185,7 +318,7 @@
 				],
 				"name": "withdrawLiquidity",
 				"outputs": [],
-				"stateMutability": "payable",
+				"stateMutability": "nonpayable",
 				"type": "function"
 			}
 		],
@@ -257,11 +390,11 @@
 			]
 		},
 		"contracts/Exchange.sol": {
-			"keccak256": "0xaf993cd485debb85517b783c1ca8bff27c5d2a085a367fcc40c747e6b50ff551",
+			"keccak256": "0xd0b33324905c84d1152133da524663800d173a836c1f4eadc7273a00e22b19c3",
 			"license": "UNLICENSED",
 			"urls": [
-				"bzz-raw://ad2a242c40237d2e75eb80903e21a7d214f956a416aaddcf6d3368d9aa7ae15f",
-				"dweb:/ipfs/Qmb151sy4K54CNE9FeA8UmFZyb782hbuxPFpnj6jwyZSVx"
+				"bzz-raw://07616b9867be20ba74d82ad1bc01bf6e2335c1e1d2f75087360a3a8a34636616",
+				"dweb:/ipfs/QmbZtJnLygdDXu9WJdWSv7xWs19ohSMYFsrGiUVQya4sqv"
 			]
 		}
 	},

@@ -1,283 +1,183 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.7;
 
-import "./KorthCoin.sol";
-import "./AsaToken.sol";
-import "./HawKoin.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract Exchange {
-    
-    ERC20 public erc20Token; 
-    uint256 public totalLiquidityPositions;
-    uint256 public K; // Constant product
-    mapping(address => uint) public liquidityPositions;
-
-    // Testing Events
-    event ReceivedEther(uint balanceRec, uint newK);
-
-    // Exchange Log Events
-    event LiquidityProvided(address provider, uint256 amountERC20TokenDeposited, uint256 amountEthDeposited, uint256 liquidityPositionsIssued);
-    event LiquidityWithdrew(uint256 amountERC20TokenWithdrew, uint256 amountEthWithdrew, uint256 liquidityPositionsBurned);
-    event SwapForEth(uint256 amountERC20TokenDeposited, uint256 amountEthWithdrew);
-    event SwapForERC20Token(uint256 amountERC20TokenWithdrew, uint256 amountEthDeposited);
+    ERC20 public erc20Token;
+    uint public totalLiquidityPositions;
+    uint public K; // Constant product
+    mapping(address => uint) public liquidityPositions; // hash map of addresses to their liquidity positions
 
     constructor(address _erc20Address) {
-        // ERC-20 token used in the exchange will be determined by caller here
-        erc20Token = ERC20(_erc20Address); 
+        erc20Token = ERC20(_erc20Address);
     }
 
-    /**
-    * Initializing receive() function to allow smart contract to receive ETH
-    */
-    receive() external payable {
-        // compute constant product K of the currently traded ERC-20 whenever the exchange recieves ETH
-        K = address(this).balance * erc20Token.balanceOf(address(this));
-        emit ReceivedEther(msg.value, K);
-    }
+    function provideLiquidity(uint _amountERC20Token) public payable returns (uint liquidity) {
+        require(msg.value > 0, "Must input more than 0 ETH.");
+        require(_amountERC20Token > 0, "Must input more than 0 ERC20 Token.");
+        uint ethBalanceBefore = address(this).balance - msg.value;
+        uint erc20BalanceBefore = erc20Token.balanceOf(address(this));
 
-    /**
-    * Caller deposits Ether and ERC20 token in ratio equal to the current ratio of tokens in the 
-    *   contract and receives liquidity positions 
-    *   (that is: totalLiquidityPositions * amountERC20Token/contractERC20TokenBalance == totalLiquidityPositions *amountEth/contractEthBalance)
-    * Param: uint _amountERC20Token being put invested to create liquidity 
-    * Return: a uint of the amount of liquidity positions issued.
-    */
-    function provideLiquidity(uint256 _amountERC20Token) external payable returns (uint256 liquidity) {
-        // ensure that the account interacting with the market is a payable account
-        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
-        address payable trader = payable(msg.sender);
-
-        // ensure that the trader is not offering 0 liquidity
-        require(_amountERC20Token != 0 && msg.value != 0, "You must provide non-zero liquidity");
-
-        // ensure that the ratios are equal
-        require(_amountERC20Token / msg.value == erc20Token.balanceOf(address(this)) / (address(this).balance - msg.value), "Provided liquidity would alter token value. Please provide liquidity proportional to token price");
-
-        // ensure that the sender has enough ERC-20 tokens to send
-        require(_amountERC20Token <= erc20Token.balanceOf(trader), "You have insufficient funds to provide this amount of ERC-20 Tokens");
-
-        // Transfer ERC20 tokens and ETH from the user to the contract
-        require(erc20Token.transferFrom(trader, address(this), _amountERC20Token), "ERC20 transfer failed");
-
-        // Calculate the balances provided
-        uint256 contractEthBalance = address(this).balance; 
-        uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
+        // Transfer ERC20 tokens from the user to the contract
+        bool sent = erc20Token.transferFrom(msg.sender, address(this), _amountERC20Token);
+        require(sent, "ERC20 transfer failed");
 
         if (totalLiquidityPositions == 0) {
-            // if first time it will start with 100 liquidity
-            liquidity = 100; 
+            liquidity = 100; // if first time it will start with 100 liquidity
         } else {
-            // Calculate liquidity based on the current pool ratio
-            liquidity = totalLiquidityPositions * _amountERC20Token / contractERC20Balance;
+            uint ethReserve = ethBalanceBefore;
+            uint tokenReserve = erc20BalanceBefore;
+            uint ethAmount = msg.value;
+            uint tokenAmount = _amountERC20Token;
+            
+            // Ensure that the ratio of ETH to ERC20 is maintained
+            require(ethReserve * tokenAmount == ethAmount * tokenReserve, "Must maintain ETH/ERC20 ratio");
+            
+            // Calculate liquidity based on the proportional amount of ETH deposited
+            liquidity = totalLiquidityPositions * ethAmount / ethReserve;
         }
-
-        // update liquidity
-        liquidityPositions[trader] += liquidity;
+        liquidityPositions[msg.sender] += liquidity;
         totalLiquidityPositions += liquidity;
 
-        // Update constant K
-        K = contractEthBalance * (contractERC20Balance + _amountERC20Token);
+        // Update K after liquidity is added, based on the new balances
+        K = (ethBalanceBefore + msg.value) * (erc20BalanceBefore + _amountERC20Token);
 
-        // log the event
-        emit LiquidityProvided(trader, _amountERC20Token, msg.value, liquidity); 
-
+        emit LiquidityProvided(msg.sender, _amountERC20Token, msg.value, liquidity); //will update the events in the log
         return liquidity;
     }
 
-    /**
-    * Users who want to provide liquidity won’t know the current ratio of the tokens in the 
-    *   contract so they’ll have to call this function to find out how much Ether to deposit 
-    *   if they want to deposit a particular amount of ERC-20 tokens.
-    * 
-    * Param: uint _amountERC20Token to be converted to the equivalent amount of ETH
-    * Return: uint of the amount of Ether to provide 
-    *   to match the ratio in the contract if caller wants to provide a given amount of ERC20 tokens
-    */
-    function estimateEthToProvide(uint256 _amountERC20Token) external view returns (uint256 amountEth) {
-        uint256 contractEthBalance = address(this).balance; 
-        uint256 contractERC20TokenBalance = erc20Token.balanceOf(address(this));
-        
+    function estimateEthToProvide(uint _amountERC20Token) public view returns (uint amountEth) {
+        require(_amountERC20Token > 0, "ERC20 token must be greater than 0.");
+        uint contractEthBalance = address(this).balance;
+        uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
         // Check if there's any ERC20 token balance in the contract to avoid division by zero
         if (contractERC20TokenBalance == 0) {
             return 0;
         }
-        
-        // Calculate the amount of Ether required to match the current ratio in the contract
+        // Calculate the amount of Ether required to maintain the current ratio
         amountEth = contractEthBalance * _amountERC20Token / contractERC20TokenBalance;
         return amountEth;
     }
 
-    /**
-    * Users who want to provide liquidity won’t know the current ratio of the tokens in the contract 
-    *   so they’ll have to call this function to find out how much ERC-20 token to deposit if they want 
-    *   to deposit an amount of Ether
-    * 
-    * Param: uint _amountEth to be converted to the equivalent amount of ERC-20 Token
-    * Return: uint of the amount of ERC20 token to provide 
-    *   to match the ratio in the contract if the caller wants to provide a given amount of Ether
-    */
-    function estimateERC20TokenToProvide(uint256 _amountEth) external view returns (uint256 amountERC20Token) {
-        uint256 contractEthBalance = address(this).balance;
-        uint256 contractERC20TokenBalance = erc20Token.balanceOf(address(this));
-        
-        // Check if there's any ERC20 token balance in the contract to avoid division by zero
-        if (contractERC20TokenBalance == 0) {
+    function estimateERC20TokenToProvide(uint _amountEth) public view returns (uint amountERC20Token) {
+        require(_amountEth > 0, "ETH must be greater than 0.");
+        uint contractEthBalance = address(this).balance;
+        uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
+        if (contractEthBalance == 0) {
             return 0;
         }
-        
-        // calculate the amount of erc 20 tokens to match current ratio in the contract
-        amountERC20Token = contractERC20TokenBalance * (_amountEth/contractEthBalance);
+        // Calculate the amount of ERC20 tokens required to maintain the current ratio
+        amountERC20Token = contractERC20TokenBalance * _amountEth / contractEthBalance;
         return amountERC20Token;
     }
 
-    /**
-    * Return: uint of the amount of the caller’s liquidity positions 
-    *   (the uint associated to the address calling in your liquidityPositions mapping) 
-    *   for when a user wishes to view their liquidity positions
-    */
-    function getMyLiquidityPositions() external view returns (uint256) {
+
+    function getMyLiquidityPositions() external view returns (uint) {
         return liquidityPositions[msg.sender];
     }
 
-    /**
-    * Caller gives up some of their liquidity positions and receives some Ether and ERC20 tokens in return.
-    *
-    * Param: uint of the number of this caller's liquidity positions to burn in exchange for ETH and ERC-20 Tokens
-    * Return: uint of number of ERC-20 Tokens sent
-    */
-    function withdrawLiquidity(uint256 _liquidityPositionsToBurn) external payable returns (uint256 amountEthToSend, uint amountERC20ToSend){
-        // ensure that the account interacting with the market is a payable account
-        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
-        address payable trader = payable(msg.sender);
-        
-        // get the contract ETH and ERC-20 balances
-        uint256 contractEthBalance = address(this).balance;
-        uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
-        
-        // make sure we have enough liquidity to burn (i.e. _liquidityPositionsToBurn <= liquidityPositions[caller]
-        require(_liquidityPositionsToBurn <= liquidityPositions[trader], "Cannot withdraw more liquidity than deposited");
-        
-        // decrement the caller's liquidity positions and the total liquidity positions
-        liquidityPositions[trader] = liquidityPositions[trader] - _liquidityPositionsToBurn;
+    function withdrawLiquidity(uint _liquidityPositionsToBurn) public {
+        require(_liquidityPositionsToBurn > 0, "Cannot burn zero liquidity positions");
+        require(liquidityPositions[msg.sender] >= _liquidityPositionsToBurn, "Not enough liquidity positions to burn");
+
+        uint contractEthBalance = address(this).balance;
+        uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
+
+        uint amountEthToSend = _liquidityPositionsToBurn * contractEthBalance / totalLiquidityPositions;
+        uint amountERC20ToSend = _liquidityPositionsToBurn * contractERC20TokenBalance / totalLiquidityPositions;
+
+        liquidityPositions[msg.sender] -= _liquidityPositionsToBurn;
         totalLiquidityPositions -= _liquidityPositionsToBurn;
-        
-        // Determine how many Eth and ERC-20 tokens to be given to the trader
-        amountEthToSend = _liquidityPositionsToBurn * contractEthBalance / totalLiquidityPositions;
-        amountERC20ToSend = _liquidityPositionsToBurn * contractERC20Balance / totalLiquidityPositions;
-        
-        // Transfer Eth and ERC-20 tokens from contract to caller
-        require(amountERC20ToSend < contractERC20Balance, "Insufficient ERC20 Funds in liquidity pool for withdrawal");
-        require(amountEthToSend < contractEthBalance, "Insufficient ETH Funds in liquidity pool for withdrawal");
-        require(erc20Token.transfer(trader, amountERC20ToSend), "ERC20 transfer failed");
-        require(trader.send(amountEthToSend), "ETH transfer failed");
 
-        // update K
-        uint256 newContractEthBalance = address(this).balance;
-        uint256 newContractERC20Balance = erc20Token.balanceOf(address(this));
-        K = newContractEthBalance * newContractERC20Balance;
+        // Using transfer for ETH to send to the user
+        payable(msg.sender).transfer(amountEthToSend);
 
-        // log the event
+        // ERC20 transfer to the user
+        require(erc20Token.transfer(msg.sender, amountERC20ToSend), "Failed to send ERC20 tokens");
+
+        // Update the K value after liquidity is removed
+        K = (contractEthBalance - amountEthToSend) * (contractERC20TokenBalance - amountERC20ToSend);
+
+        // Emitting the event with the amount of ERC20 tokens and Ether sent, and liquidity positions burned
         emit LiquidityWithdrew(amountERC20ToSend, amountEthToSend, _liquidityPositionsToBurn);
-        
-        // Return both the amount of Eth sent and the amount of ERC-20 tokens sent
-        return (amountEthToSend, amountERC20ToSend);
     }
 
-    /**
-    * Caller deposits some ERC20 token in return for some Ether
-    *
-    * Param: uint of the amount of ERC-20 Tokens that the caller would like to deposit for ETH
-    * Return: uint of the amount of ETH sent in exchange for ERC-20 tokens
-    */
-    function swapForEth(uint256 _amountERC20Token) external payable returns (uint256 amountEthSent) {
-        // ensure that the account interacting with the market is a payable account
-        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
-        address payable trader = payable(msg.sender);
+    function swapForEth(uint _amountERC20Token) public returns (uint ethToSend) {
+        uint contractEthBalance = address(this).balance;
+        uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
 
-        // aquire contract ETH balance
-        uint256 contractEthBalance = address(this).balance;
-
-        // make sure that the caller has the amount of ERC-20 tokens
-        require(_amountERC20Token <= erc20Token.balanceOf(trader), "Insufficient ERC-20 funds to swap");
+        require(_amountERC20Token > 0, "Must input more than 0 ERC20 Token.");
+        require(contractERC20TokenBalance > 0, "Insufficient liquidity.");
         
-        // Transfer ERC-20 Tokens from caller to contract
-        require(erc20Token.transferFrom(trader, address(this), _amountERC20Token), "ERC20 transfer failed");
-        
-        // compute ERC-20 balance after swap
-        uint256 contractERC20BalanceAfterSwap = erc20Token.balanceOf(address(this));
+        // Transfer ERC20 tokens from the user to the contract
+        require(erc20Token.transferFrom(msg.sender, address(this), _amountERC20Token), "ERC20 transfer failed");
 
-        // compute ETH to send to user in exchange for ERC-20 tokens    
-        uint256 contractEthBalanceAfterSwap = K / contractERC20BalanceAfterSwap;
-        amountEthSent = contractEthBalance - contractEthBalanceAfterSwap;
-        
-        // transfer ETH from contract to caller
-        require(trader.send(amountEthSent), "ETH transfer failed");
+        // Calculate contractEthBalanceAfterSwap using the constant product formula
+        uint contractERC20TokenBalanceAfterSwap = contractERC20TokenBalance + _amountERC20Token;
+        uint contractEthBalanceAfterSwap = K / contractERC20TokenBalanceAfterSwap;
+        ethToSend = contractEthBalance - contractEthBalanceAfterSwap;
 
-        // log the event
-        emit SwapForEth(_amountERC20Token, amountEthSent);
+        // Checks to prevent swaps that would result in no ETH sent to the user
+        require(ethToSend > 0 && ethToSend <= contractEthBalance, "Invalid swap request");
 
-        // return amountEthSent
-        return amountEthSent;
+        // Send ETH to the user
+        payable(msg.sender).transfer(ethToSend);
+
+        // Emit the event
+        emit SwapForEth(_amountERC20Token, ethToSend);
+
+        return ethToSend;
     }
 
-    /**
-    * Estimates the amount of Ether to give caller based on amount ERC20 token caller wishes to swap for 
-    *   when a user wants to know how much Ether to expect when calling swapForEth
-    * 
-    * Param: uint of the amount of ERC-20 tokens to be approximately converted to equivalent ETH value
-    * Return: uint of the estimated amount of ETH of equivalent value to the amount of ERC-20 tokens to be swapped
-    */
-    function estimateSwapForEth(uint256 _amountERC20Token) external view returns (uint256 ethEstimate) {
-        uint256 contractEthBalance = address(this).balance;
+    function estimateSwapForEth(uint _amountERC20Token) public view returns (uint ethToSend) {
+        require(_amountERC20Token > 0, "Must input more than 0 ERC20 Token.");
         
-        // compute ERC-20 balance after swap
-        uint256 contractERC20BalanceAfterSwap = erc20Token.balanceOf(address(this)) + _amountERC20Token;
+        uint contractEthBalance = address(this).balance;
+        uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
+        require(contractERC20TokenBalance > 0, "Insufficient liquidity.");
 
-        // compute ETH estimate in exchange for ERC-20 tokens    
-        uint256 contractEthBalanceAfterSwap = K / contractERC20BalanceAfterSwap;
-        ethEstimate = contractEthBalance - contractEthBalanceAfterSwap;
-        
-        return ethEstimate;
+        // Calculate contractEthBalanceAfterSwap using the constant product formula
+        uint contractERC20TokenBalanceAfterSwap = contractERC20TokenBalance + _amountERC20Token;
+        uint contractEthBalanceAfterSwap = K / contractERC20TokenBalanceAfterSwap;
+        ethToSend = contractEthBalance - contractEthBalanceAfterSwap;
+
+        // Checks to ensure the estimation doesn't suggest a swap that would result in no ETH sent
+        require(ethToSend > 0 && ethToSend <= contractEthBalance, "Invalid swap estimate");
+
+        return ethToSend;
     }
 
-    /**
-    * Caller deposits some ETH in return for some ERC-20 Token
-    *
-    * Return: uint of the amount of ERC-20 tokens sent in exchange for ETH
-    */
-    function swapForERC20Token() external payable returns (uint256 amountERC20Sent) {
-        // ensure that the account interacting with the market is a payable account
-        require(payable(msg.sender).send(0), "Only payable accounts can interact with the market");
-        address payable trader = payable(msg.sender);
-        
-        // Transfer ETH from caller to contract (done automatically)
+    function swapForERC20Token() public payable returns (uint ERC20TokenToSend) {
+        require(msg.value > 0, "Must deposit more than 0 ETH.");
+        uint contractEthBalanceBefore = address(this).balance - msg.value;
+        uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
+        uint contractERC20TokenBalanceAfterSwap = K / (contractEthBalanceBefore + msg.value);
+        ERC20TokenToSend = contractERC20TokenBalance - contractERC20TokenBalanceAfterSwap;
 
-        // compute ERC-20 tokens to send in exchange for the ETH
-        uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
-        uint256 contractERC20BalanceAfterSwap = K / address(this).balance;
-        amountERC20Sent = contractERC20Balance - contractERC20BalanceAfterSwap;
+        // Transfer ERC20 tokens from the contract to the caller
+        require(erc20Token.transfer(msg.sender, ERC20TokenToSend), "Failed to send ERC20 tokens");
 
-        // Transfer ERC-20 tokens from contract to caller
-        require(erc20Token.transfer(trader, amountERC20Sent), "ERC-20 transfer failed");
+        // Emit the event
+        emit SwapForERC20Token(ERC20TokenToSend, msg.value);
 
-        // log the event
-        emit SwapForERC20Token(amountERC20Sent, msg.value);
-
-        return amountERC20Sent;
+        return ERC20TokenToSend;
     }
 
-    /**
-    * Caller deposits some ETH in return for some ERC-20 Token
-    *
-    * Return: uint of the amount of ERC-20 tokens sent in exchange for ETH
-    */
-    function estimateSwapForERC20Token(uint256 _amountEth) external view returns (uint256 erc20Estimate) {
+    function estimateSwapForERC20Token(uint _amountEth) public view returns (uint ERC20TokenToSend) {
+        require(_amountEth > 0, "ETH amount must be greater than 0.");
+        uint contractEthBalance = address(this).balance;
+        uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
+        uint contractERC20TokenBalanceAfterSwap = K / (contractEthBalance + _amountEth);
+        ERC20TokenToSend = contractERC20TokenBalance - contractERC20TokenBalanceAfterSwap;
 
-        // compute ERC-20 tokens to send in exchange for the ETH
-        uint256 contractERC20Balance = erc20Token.balanceOf(address(this));
-        uint256 contractERC20BalanceAfterSwap = K / (address(this).balance + _amountEth);
-        erc20Estimate = contractERC20Balance - contractERC20BalanceAfterSwap;
+        return ERC20TokenToSend;
+    }
 
-        return erc20Estimate;   
-    }    
+    //events
+    event LiquidityProvided(address provider, uint amountERC20TokenDeposited, uint amountEthDeposited, uint liquidityPositionsIssued);
+    event LiquidityWithdrew(uint amountERC20TokenWithdrew, uint amountEthWithdrew, uint liquidityPositionsBurned);
+    event SwapForEth(uint amountERC20TokenDeposited, uint amountEthWithdrew);
+    event SwapForERC20Token(uint amountERC20TokenWithdrew, uint amountEthDeposited);
+
 }
