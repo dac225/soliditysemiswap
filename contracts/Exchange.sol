@@ -24,8 +24,9 @@ contract Exchange {
 
     // contract functions
     function provideLiquidity(uint _amountERC20Token) public payable returns (uint liquidity) {
-        require(msg.value > 0, "Error: Must input more than 0 ETH.");
-        require(_amountERC20Token > 0, "Error: Must input more than 0 ERC20 Token.");
+        require(msg.value > 0, "Error: Must input greater than 0 Wei");
+        require(_amountERC20Token > 0, "Error: Must input greater than 0 ERC20-Tokens");
+
         uint ethBalanceBefore = address(this).balance - msg.value;
         uint erc20BalanceBefore = erc20Token.balanceOf(address(this));
 
@@ -38,11 +39,26 @@ contract Exchange {
         } else {
             uint ethReserve = ethBalanceBefore;
             uint tokenReserve = erc20BalanceBefore;
-            uint ethAmount = msg.value;
-            uint tokenAmount = _amountERC20Token;
-            
+            // calculate how many of the tokens and how many ether are actually needed to maintain the ratio
+            uint tokenAmount = (msg.value * tokenReserve) / ethReserve;
+            uint ethAmount = (tokenAmount * ethReserve) / tokenReserve;
+            // send the unneeded tokens back to the user
+            uint tokenDiff = _amountERC20Token - tokenAmount;
+            uint etherDiff = msg.value - ethAmount;
+
+            // return the unused tokens and ether 
+            require(tokenDiff >= 0, "Error: Need more tokens than given to maintain Wei/ERC20 ratio");
+            if (tokenDiff > 0) {
+                bool sentDiff = erc20Token.transfer(msg.sender, tokenDiff);
+                require(sentDiff, "Error: Token remainder transfer failed");
+            }
+            require(etherDiff >= 0, "Error: Need more ether than given to maintain Wei:ERC20 ratio");
+            if (etherDiff > 0) {
+                payable(msg.sender).transfer(etherDiff);
+            }
+
             // Ensure that the ratio of ETH to ERC20 is maintained
-            require(ethReserve * tokenAmount == ethAmount * tokenReserve, "Error: Must maintain ETH/ERC20 ratio");
+            require(ethReserve * tokenAmount == ethAmount * tokenReserve, "Error: Must maintain Wei/ERC20 ratio");
             
             // Calculate liquidity based on the proportional amount of ETH deposited
             liquidity = totalLiquidityPositions * ethAmount / ethReserve;
@@ -71,7 +87,7 @@ contract Exchange {
     }
 
     function estimateERC20TokenToProvide(uint _amountEth) public view returns (uint amountERC20Token) {
-        require(_amountEth > 0, "Error: ETH must be greater than 0.");
+        require(_amountEth > 0, "Error: Wei must be greater than 0.");
         uint contractEthBalance = address(this).balance;
         uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
         if (contractEthBalance == 0) {
@@ -159,7 +175,7 @@ contract Exchange {
     }
 
     function swapForERC20Token() public payable returns (uint ERC20TokenToSend) {
-        require(msg.value > 0, "Error: Must deposit more than 0 ETH.");
+        require(msg.value > 0, "Error: Must deposit more than 0 Wei.");
         uint contractEthBalanceBefore = address(this).balance - msg.value;
         uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
         uint contractERC20TokenBalanceAfterSwap = K / (contractEthBalanceBefore + msg.value);
