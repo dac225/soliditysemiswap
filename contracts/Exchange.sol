@@ -4,7 +4,7 @@ pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract Exchange {
-    ERC20 public erc20Token;
+    ERC20 public erc20Token; // The ERC-20 token assigned to this instance of Exchange
     uint public totalLiquidityPositions;
     uint public K; // Constant product
     mapping(address => uint) public liquidityPositions; // hash map of addresses to their liquidity positions
@@ -13,23 +13,18 @@ contract Exchange {
         erc20Token = ERC20(_erc20Address);
     }
 
-    // testing functions
-    function getERC20Balance() external view returns (uint) {
-        return erc20Token.balanceOf(address(this));
-    }
-
-    function getEtherBalance() external view returns (uint) {
-        return address(this).balance;
-    }
-
+    /// GRADERNOTE: This function minimumWeiAndERC20ToProvide() is not in the spec, but we noticed that when providing too little an amount 
+    /// of ERC-20 tokens and wei, the provided liquidity points to the trader would return 0. For the purposes
+    /// of our testing, we implemented this function to provide estimates for the amount of both ERC-20 tokens 
+    /// and ether to provide in order to recieve 1 liqiudity point. 
     // Calculates the amount of Ether and ERC20 to provide in order to gain 1 liquidity point 
     function minimumWeiAndERC20ToProvide() public view returns (uint amountWei, uint amountERC20) {
-        // Each are padded by 1 just to ensure that no truncation errors occur when passing in the values
+        // Each are padded by 1 and multiplied by 2 just to ensure that no truncation errors occur when passing in the values
         amountERC20 = 2 * erc20Token.balanceOf(address(this)) / totalLiquidityPositions + 1;
         amountWei = 2 * address(this).balance / totalLiquidityPositions + 1;
     }
 
-    // contract functions
+    // spec-required functions
     function provideLiquidity(uint _amountERC20Token) public payable returns (uint liquidity) {
         require(msg.value > 0, "Error: Must input greater than 0 Wei");
         require(_amountERC20Token > 0, "Error: Must input greater than 0 ERC20-Tokens");
@@ -46,17 +41,17 @@ contract Exchange {
         } else {
             uint weiReserve = weiBalanceBefore;
             uint tokenReserve = erc20BalanceBefore;
-            
-            // Ensure that the ratio of ETH to ERC20 is maintained with allowance for small epsilon deviation
-            // GRADERNOTE: Below is a solution for maintaining roughly equal ratios due to a truncation error when 
-            // estimating eth (wei) and erc-20 tokens needed to provide to maintain proper ratio. The error is expressed
-            // as a difference of 1 wei when providing liquidity, swap erc-20 for eth, and provide liquidity again.
-            // Our fix allows for a small value epsilon of rounding error that must be below 0.1% of the greater ratio.
-            // We spoke with Prof. Korth on how to solve this issue, and we concluded that while there may be an opportunity
-            // for extracting value from this mechanism, the gas required to complete this attack would 
-            // outweigh the potential gains for our purposes
+                
+            /// GRADERNOTE: Below is a solution for maintaining roughly equal ratios due to a truncation error when 
+            /// estimating eth (wei) and erc-20 tokens needed to provide to maintain proper ratio. The error is expressed
+            /// as a difference of 1 wei when providing liquidity, swap erc-20 for eth, and provide liquidity again.
+            /// Our fix allows for a small value epsilon of rounding error that must be below 0.1% of the greater ratio.
+            /// We spoke with Prof. Korth on how to solve this issue, and we concluded that while there may be an opportunity
+            /// for extracting value from this mechanism, the gas required to complete this attack would 
+            /// outweigh the potential gains for our purposes
             uint epsilon;
             uint ceiling; // The ceiling is 1% of the greater product
+            // Ensure that the ratio of ETH to ERC20 is maintained with allowance for small epsilon deviation
             if ((_amountERC20Token * weiReserve) < (msg.value * tokenReserve)) {
                 ceiling = (msg.value * tokenReserve) / 1000;
                 epsilon = (msg.value * tokenReserve) - (_amountERC20Token * weiReserve);
@@ -70,11 +65,9 @@ contract Exchange {
                 epsilon = 0;
             }
             require(epsilon <= ceiling, "Error: Must maintain Wei/ERC20 ratio");
-            //emit ShowEpsilonAndCeiling(epsilon, ceiling);
 
             // Calculate liquidity based on the proportional amount of ETH deposited
             liquidity = totalLiquidityPositions * _amountERC20Token / erc20Token.balanceOf(address(this));
-            // emit ShowLiquidity(liquidity);
         }
         liquidityPositions[msg.sender] += liquidity;
         totalLiquidityPositions += liquidity;
@@ -82,7 +75,7 @@ contract Exchange {
         // Update K after liquidity is added, based on the new balances
         K = (address(this).balance) * (erc20Token.balanceOf(address(this)));
 
-        emit LiquidityProvided(msg.sender, _amountERC20Token, msg.value, liquidity); //will update the events in the log
+        emit LiquidityProvided(msg.sender, _amountERC20Token, msg.value, liquidity); 
         return liquidity;
     }
 
@@ -94,7 +87,7 @@ contract Exchange {
         if (contractERC20TokenBalance == 0) {
             return 0;
         }
-        // Calculate the amount of Ether required to maintain the current ratio
+        // Calculate an estimate of the amount of Wei required to maintain the current ratio
         amountEth = contractEthBalance * _amountERC20Token / contractERC20TokenBalance;
         return amountEth;
     }
@@ -163,7 +156,6 @@ contract Exchange {
         // Send ETH to the user
         payable(msg.sender).transfer(ethToSend);
 
-        // Emit the event
         emit SwapForEth(_amountERC20Token, ethToSend);
 
         return ethToSend;
@@ -196,7 +188,6 @@ contract Exchange {
         // Transfer ERC20 tokens from the contract to the caller
         require(erc20Token.transfer(msg.sender, ERC20TokenToSend), "Error: Failed to send ERC20 tokens");
 
-        // Emit the event
         emit SwapForERC20Token(ERC20TokenToSend, msg.value);
 
         return ERC20TokenToSend;
@@ -212,12 +203,7 @@ contract Exchange {
         return ERC20TokenToSend;
     }
 
-    //testing events
-    event ShowRatio(uint lhs, uint rhs);
-    event ShowEpsilonAndCeiling(uint epsilon, uint ceiling);
-    event ShowLiquidity(uint liquidity);
-
-    //contract events
+    // Events for logging exchange actions
     event LiquidityProvided(address provider, uint amountERC20TokenDeposited, uint amountEthDeposited, uint liquidityPositionsIssued);
     event LiquidityWithdrew(uint amountERC20TokenWithdrew, uint amountEthWithdrew, uint liquidityPositionsBurned);
     event SwapForEth(uint amountERC20TokenDeposited, uint amountEthWithdrew);
