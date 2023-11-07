@@ -22,12 +22,19 @@ contract Exchange {
         return address(this).balance;
     }
 
+    // Calculates the amount of Ether and ERC20 to provide in order to gain 1 liquidity point 
+    function minimumWeiAndERC20ToProvide() public view returns (uint amountWei, uint amountERC20) {
+        // Each are padded by 1 just to ensure that no truncation errors occur when passing in the values
+        amountERC20 = 2 * erc20Token.balanceOf(address(this)) / totalLiquidityPositions + 1;
+        amountWei = 2 * address(this).balance / totalLiquidityPositions + 1;
+    }
+
     // contract functions
     function provideLiquidity(uint _amountERC20Token) public payable returns (uint liquidity) {
         require(msg.value > 0, "Error: Must input greater than 0 Wei");
         require(_amountERC20Token > 0, "Error: Must input greater than 0 ERC20-Tokens");
 
-        uint ethBalanceBefore = address(this).balance - msg.value;
+        uint weiBalanceBefore = address(this).balance - msg.value;
         uint erc20BalanceBefore = erc20Token.balanceOf(address(this));
 
         // Transfer ERC20 tokens from the user to the contract
@@ -37,7 +44,7 @@ contract Exchange {
         if (totalLiquidityPositions == 0) {
             liquidity = 100; // if first time it will start with 100 liquidity
         } else {
-            uint ethReserve = ethBalanceBefore;
+            uint weiReserve = weiBalanceBefore;
             uint tokenReserve = erc20BalanceBefore;
             
             // Ensure that the ratio of ETH to ERC20 is maintained with allowance for small epsilon deviation
@@ -50,24 +57,24 @@ contract Exchange {
             // outweigh the potential gains for our purposes
             uint epsilon;
             uint ceiling; // The ceiling is 1% of the greater product
-            if ((_amountERC20Token * ethReserve) < (msg.value * tokenReserve)) {
+            if ((_amountERC20Token * weiReserve) < (msg.value * tokenReserve)) {
                 ceiling = (msg.value * tokenReserve) / 1000;
-                epsilon = (msg.value * tokenReserve) - (_amountERC20Token * ethReserve);
+                epsilon = (msg.value * tokenReserve) - (_amountERC20Token * weiReserve);
             }
-            else if ((_amountERC20Token * ethReserve) > (msg.value * tokenReserve)) {
-                ceiling = (_amountERC20Token * ethReserve) / 100;
-                epsilon = (_amountERC20Token * ethReserve) - (msg.value * tokenReserve);
+            else if ((_amountERC20Token * weiReserve) > (msg.value * tokenReserve)) {
+                ceiling = (_amountERC20Token * weiReserve) / 100;
+                epsilon = (_amountERC20Token * weiReserve) - (msg.value * tokenReserve);
             }
             else {
                 ceiling = 1;
                 epsilon = 0;
             }
-            //require(epsilon < ceiling, "Error: Must maintain Wei/ERC20 ratio");
-            emit ShowEpsilonAndCeiling(epsilon, ceiling);
+            require(epsilon <= ceiling, "Error: Must maintain Wei/ERC20 ratio");
+            //emit ShowEpsilonAndCeiling(epsilon, ceiling);
 
             // Calculate liquidity based on the proportional amount of ETH deposited
             liquidity = totalLiquidityPositions * _amountERC20Token / erc20Token.balanceOf(address(this));
-            emit ShowLiquidity(liquidity);
+            // emit ShowLiquidity(liquidity);
         }
         liquidityPositions[msg.sender] += liquidity;
         totalLiquidityPositions += liquidity;
